@@ -1190,7 +1190,62 @@ function handlePromo(promoId) {
   if (promoId === 'signup-coupon') { currentUser ? showToast('이미 로그인되어 있습니다') : openSignupModal(); }
   else showToast('🚚 3만원 이상 주문 시 배송비가 무료입니다');
 }
-function handleEvent(eventId, category) { quickCategory(category); }
+function handleEvent(eventId, category) {
+  if (eventId === 'summer-sale') trackEvent('promotion_click', { promotion_name: '시원 할인 프로모션' });
+  quickCategory(category);
+}
+
+// ────────────────────────────────
+// GA4 EVENT TRACKING (텍소노미: GA4 web이벤트 리스트)
+// ────────────────────────────────
+function trackEvent(name, params) {
+  if (typeof gtag === 'function') gtag('event', name, params);
+}
+
+// 메인 영역별 상품 카드: 특가 / 베스트
+const TRACK_SECTIONS = [
+  { listId: 'today-deal-list',   cardSel: '.deal-card', section: '특가' },
+  { listId: 'best-product-list', cardSel: '.best-card', section: '베스트' }
+];
+
+// item_click: 메인 특가·베스트 영역의 제품 카드 클릭
+TRACK_SECTIONS.forEach(({ listId, cardSel, section }) => {
+  document.getElementById(listId).addEventListener('click', (e) => {
+    const card = e.target.closest(cardSel);
+    if (card) trackEvent('item_click', { item_name: card.dataset.productName, section });
+  });
+});
+
+// item_view: 메인 특가·베스트 영역의 제품 카드가 화면에 50% 이상 노출될 때 (카드당 1회)
+const viewedItems = new Set();
+function observeItemViews() {
+  if (!('IntersectionObserver' in window)) return;
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      const { section } = en.target._trackInfo;
+      const key = section + '|' + en.target.dataset.productName;
+      observer.unobserve(en.target);
+      if (viewedItems.has(key)) return;
+      viewedItems.add(key);
+      trackEvent('item_view', { item_name: en.target.dataset.productName, section });
+    });
+  }, { threshold: 0.5 });
+  TRACK_SECTIONS.forEach(info => {
+    document.querySelectorAll('#' + info.listId + ' ' + info.cardSel).forEach(el => {
+      el._trackInfo = info;
+      observer.observe(el);
+    });
+  });
+}
+
+// add_to_cart / purchase 공통 파라미터 (상품 상세의 현재 선택 옵션·수량 기준)
+function detailTrackParams(productId) {
+  const product = PRODUCTS.find(p => p.id === productId);
+  if (!product) return null;
+  const v = getVariant(product, selectedVariantId);
+  return { item_name: product.name, item_option: v.label, value: v.price * detailQty };
+}
 function handleFooterLink(name) { showToast(name + ' — 데모 사이트에서는 제공되지 않습니다'); }
 
 // ────────────────────────────────
@@ -1822,6 +1877,8 @@ function switchDetailTab(tab, btn) {
 }
 
 function buyNow(productId) {
+  const params = detailTrackParams(productId);
+  if (params) trackEvent('purchase', params);
   addToCart(productId, detailQty, true, selectedVariantId);
   goCheckout();
 }
@@ -1870,6 +1927,8 @@ function syncDetailPrice() {
 }
 
 function addToCartFromDetail(productId) {
+  const params = detailTrackParams(productId);
+  if (params) trackEvent('add_to_cart', params);
   addToCart(productId, detailQty, false, selectedVariantId);
 }
 
@@ -2280,6 +2339,7 @@ renderAuthState();
 updateCartCount();
 updateWishlistCount();
 renderHomeSections();
+observeItemViews();
 renderRecentlyViewed();
 tickDealTimer();
 setInterval(tickDealTimer, 1000);
