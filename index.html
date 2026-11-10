@@ -2289,6 +2289,8 @@ function doSearch(event) {
   if (event) event.preventDefault();
   const query = document.getElementById('search-input').value.trim();
   if (!query) { navigate('/'); return; }
+  // search: 사용자가 검색을 제출한 경우만 수집 (새로고침·딥링크 재진입은 제외)
+  trackEvent('search', { search_term: query, result_count: searchProducts(query).length });
   pendingScrollTo = 'section-all-products';
   navigate('/search/' + encodeURIComponent(query));
 }
