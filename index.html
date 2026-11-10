@@ -2328,6 +2328,7 @@ function goToBanner(idx) {
   document.getElementById('banner-track').style.transform = `translateX(-${bannerIdx * 100}%)`;
   document.querySelectorAll('.banner-dot').forEach((d, i) => d.classList.toggle('is-active', i === bannerIdx));
   resetBannerTimer();
+  trackBannerView();
 }
 
 function moveBanner(dir) {
@@ -2340,6 +2341,31 @@ function resetBannerTimer() {
 }
 
 resetBannerTimer();
+
+// top_banner_view: 상단 배너 영역이 화면에 50% 이상 보이는 상태에서 슬라이드가 노출될 때 (슬라이드당 1회)
+const viewedBanners = new Set();
+let heroVisible = false;
+function trackBannerView() {
+  if (!heroVisible || viewedBanners.has(bannerIdx)) return;
+  const slide = document.querySelectorAll('.banner-slide')[bannerIdx];
+  if (!slide) return;
+  viewedBanners.add(bannerIdx);
+  trackEvent('top_banner_view', { banner_name: slide.dataset.bannerTitle, banner_index: bannerIdx + 1 });
+}
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(entries => {
+    heroVisible = entries[entries.length - 1].isIntersecting;
+    trackBannerView();
+  }, { threshold: 0.5 }).observe(document.getElementById('hero'));
+}
+
+// top_banner_click: 상단 배너의 CTA 버튼 클릭
+document.getElementById('hero').addEventListener('click', (e) => {
+  const cta = e.target.closest('.banner-cta');
+  if (!cta) return;
+  const slide = cta.closest('.banner-slide');
+  trackEvent('top_banner_click', { banner_name: slide.dataset.bannerTitle, banner_index: Number(slide.dataset.bannerId) });
+});
 
 // ────────────────────────────────
 // INIT
