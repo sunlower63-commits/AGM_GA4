@@ -1122,6 +1122,17 @@ function toggleWishlist(productId, event) {
   } else {
     wishlist.push(productId);
     showToast('♥ 찜 목록에 추가했습니다');
+    // add_to_wishlist: 상품 상세에서 찜이 추가될 때만 (해제는 미수집)
+    if (p && document.body.getAttribute('data-page-type') === 'product') {
+      const v = getVariant(p, selectedVariantId);
+      trackEvent('add_to_wishlist', {
+        item_name: p.name,
+        item_option: v.label,
+        value: v.price,
+        wishlist_count: wishlist.length,
+        login_status: currentUser ? 'logged_in' : 'logged_out'
+      });
+    }
   }
   saveWishlist();
   updateWishlistCount();
